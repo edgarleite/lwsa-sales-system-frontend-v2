@@ -3,10 +3,10 @@
     <!-- Navbar só aparece quando autenticado -->
     <nav v-if="isAuthenticated" class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
       <div class="container">
-        <router-link to="/" class="navbar-brand">Vendas App</router-link>
+        <router-link to="/" class="navbar-brand">Sales System App</router-link>
         <div class="navbar-nav">
-          <router-link to="/sellers" class="nav-link">Vendedores</router-link>
-          <router-link to="/sales" class="nav-link">Vendas</router-link>
+          <router-link to="/sellers" class="nav-link">Sellers</router-link>
+          <router-link to="/sales" class="nav-link">Sales</router-link>
           <button @click="handleLogout" class="btn btn-link nav-link">Logout</button>
         </div>
       </div>
