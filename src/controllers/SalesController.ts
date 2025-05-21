@@ -6,7 +6,6 @@ export class SalesController {
   private apiService: ApiService;
   
   public sales = ref<Sale[]>([]);
-  public isLoading = ref(false);
   public error = ref<string | null>(null);
   public pagination = ref({
     links: {
@@ -27,13 +26,21 @@ export class SalesController {
     },
   });
 
-  // Para o modal de criação
   public isCreateModalOpen = ref(false);
+  public isViewModalOpen = ref(false);
+  public isEditModalOpen = ref(false);
+  public isDeleteModalOpen = ref(false);
+  public isLoading = ref(false);
+  public isLoadingSellers = ref(false);
+  public isDeleting = ref(false);
+  public isUpdating = ref(false);
   public newSale = ref({
     seller_id: 0,
     amount: 0,
     sale_date: new Date().toISOString().split('T')[0]
   });
+  public selectedSale = ref<Sale | null>(null);
+  public saleToDelete = ref<Sale | null>(null);
   public sellersDropdown = ref<{id: number, name: string}[]>([]);
 
   constructor(apiService: ApiService) {
@@ -58,8 +65,9 @@ export class SalesController {
   }
 
   async fetchSellersForDropdown() {
+    this.isLoadingSellers.value = true;
     try {
-      const response = await this.apiService.getSellersForDropdown(); // Página 1 com muitos itens
+      const response = await this.apiService.getSellersForDropdown();
       this.sellersDropdown.value = response.data.map(seller => ({
         id: seller.id,
         name: seller.name
@@ -67,6 +75,8 @@ export class SalesController {
     } catch (err) {
       console.error('Failed to fetch sellers:', err);
       this.sellersDropdown.value = [];
+    } finally {
+      this.isLoadingSellers.value = false;
     }
   }
 
@@ -95,8 +105,75 @@ export class SalesController {
     }
   }
 
-  // Métodos auxiliares
   shouldShowPagination(): boolean {
     return this.pagination.value.meta.total > this.pagination.value.meta.per_page;
+  }
+
+  openViewModal(sale: Sale) {
+    this.selectedSale.value = sale;
+    this.isViewModalOpen.value = true;
+  }
+
+  closeViewModal() {
+    this.isViewModalOpen.value = false;
+    this.selectedSale.value = null;
+  }
+
+  async openEditModal(sale: Sale) {
+    this.selectedSale.value = JSON.parse(JSON.stringify(sale));
+    this.isEditModalOpen.value = true;
+    await this.fetchSellersForDropdown(); // Adicione await aqui
+  }
+
+  closeEditModal() {
+    this.isEditModalOpen.value = false;
+    this.selectedSale.value = null;
+  }
+
+  openDeleteModal(sale: Sale) {
+    this.saleToDelete.value = sale;
+    this.isDeleteModalOpen.value = true;
+  }
+
+  closeDeleteModal() {
+    this.isDeleteModalOpen.value = false;
+    this.saleToDelete.value = null;
+  }
+
+  async updateSale(): Promise<void> {
+    if (!this.selectedSale.value) return;
+    
+    this.isUpdating.value = true;
+    this.error.value = null;
+    
+    try {
+      await this.apiService.updateSale(
+        this.selectedSale.value.id,
+        this.selectedSale.value
+      );
+      this.closeEditModal();
+      this.fetchSales(); // Atualiza a lista
+    } catch (error) {
+      this.error.value = 'Failed to update sale';
+    } finally {
+      this.isUpdating.value = false;
+    }
+  }
+
+  async deleteSale(): Promise<void> {
+    if (!this.saleToDelete.value) return;
+    
+    this.isDeleting.value = true;
+    this.error.value = null;
+    
+    try {
+      await this.apiService.deleteSale(this.saleToDelete.value.id);
+      this.closeDeleteModal();
+      this.fetchSales(); // Atualiza a lista
+    } catch (error) {
+      this.error.value = 'Failed to delete sale';
+    } finally {
+      this.isDeleting.value = false;
+    }
   }
 }

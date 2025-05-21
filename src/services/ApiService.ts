@@ -107,6 +107,18 @@ export class ApiService {
     }
   }
 
+  async resendCommissionEmail(sellerId: number, date: string): Promise<{ message: string }> {
+    try {
+      const response = await this.axiosInstance.post(
+        `/api/v1/reports/resend/${sellerId}`,
+        { date }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error('Failed to resend commission email');
+    }
+  }
+
   async createSale(saleData: {
     seller_id: number;
     amount: number;
@@ -119,32 +131,43 @@ export class ApiService {
     }
   }
 
-  async getSellersForDropdown(page: number = 1): Promise<{data: Seller[], meta: any}> {
+  async getSellersForDropdown(): Promise<{data: Seller[], meta: any}> {
     try {
       const response = await this.axiosInstance.get('/api/v1/sellers', {
         params: {
-          page,
-          per_page: 1000 // Número alto para trazer todos de uma vez
+          per_page: 1000, // Busca todos os vendedores de uma vez
+          order_by: 'name', // Ordena por nome
+          sort: 'asc' // Ordem crescente
         }
       });
-      return {
-        data: response.data.data,
-        meta: response.data.meta
-      };
+      return response.data;
     } catch (error) {
       throw new Error('Failed to fetch sellers');
     }
   }
 
-  async resendCommissionEmail(sellerId: number, date: string): Promise<{ message: string }> {
+  async getSale(id: number): Promise<Sale> {
     try {
-      const response = await this.axiosInstance.post(
-        `/api/v1/reports/resend/${sellerId}`,
-        { date }
-      );
-      return response.data;
+      const response = await this.axiosInstance.get(`/api/v1/sales/${id}`);
+      return response.data.data;
     } catch (error) {
-      throw new Error('Failed to resend commission email');
+      throw new Error('Failed to fetch sale');
+    }
+  }
+
+  async updateSale(id: number, saleData: Partial<Sale>): Promise<void> {
+    try {
+      await this.axiosInstance.put(`/api/v1/sales/${id}`, saleData);
+    } catch (error) {
+      throw new Error('Failed to update sale');
+    }
+  }
+
+  async deleteSale(id: number): Promise<void> {
+    try {
+      await this.axiosInstance.delete(`/api/v1/sales/${id}`);
+    } catch (error) {
+      throw new Error('Failed to delete sale');
     }
   }
 }

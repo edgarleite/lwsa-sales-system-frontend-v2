@@ -64,7 +64,138 @@
       {{ error }}
       <button @click="fetchSales()" class="btn btn-sm btn-outline-danger ms-2">Retry</button>
     </div>
-    
+
+    <!-- Modal de Visualização -->
+    <div class="modal fade" :class="{ show: isViewModalOpen, 'd-block': isViewModalOpen }" tabindex="-1" v-if="isViewModalOpen && selectedSale">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title">Sale Details #{{ selectedSale.id }}</h5>
+            <button type="button" class="btn-close btn-close-white" @click="closeViewModal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row">
+              <div class="col-md-6">
+                <h6 class="text-muted">Sale Information</h6>
+                <ul class="list-group list-group-flush">
+                  <li class="list-group-item">
+                    <strong>ID:</strong> {{ selectedSale.id }}
+                  </li>
+                  <li class="list-group-item">
+                    <strong>Seller ID:</strong> {{ selectedSale.seller_id }}
+                  </li>
+                  <li class="list-group-item">
+                    <strong>Amount:</strong> {{ formatCurrency(selectedSale.amount) }}
+                  </li>
+                </ul>
+              </div>
+              <div class="col-md-6">
+                <h6 class="text-muted">Financial Details</h6>
+                <ul class="list-group list-group-flush">
+                  <li class="list-group-item">
+                    <strong>Commission:</strong> {{ formatCurrency(selectedSale.commission) }}
+                  </li>
+                  <li class="list-group-item">
+                    <strong>Net Value:</strong> {{ formatCurrency(calculateNetValue(selectedSale)) }}
+                  </li>
+                  <li class="list-group-item">
+                    <strong>Sale Date:</strong> {{ formatDate(selectedSale.sale_date) }}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeViewModal">Close</button>
+            <button type="button" class="btn btn-primary" @click="openEditModal(selectedSale)">
+              <i class="bi bi-pencil"></i> Edit Sale
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Edição -->
+    <div class="modal fade" :class="{ show: isEditModalOpen, 'd-block': isEditModalOpen }" tabindex="-1" v-if="isEditModalOpen && selectedSale">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Edit Sale #{{ selectedSale.id }}</h5>
+            <button type="button" class="btn-close" @click="closeEditModal"></button>
+          </div>
+          <div class="modal-body">
+            <form @submit.prevent="updateSale">
+              <div class="mb-3">
+                <label for="editSellerId" class="form-label">Seller</label>
+                <select class="form-select" id="editSellerId" v-model="selectedSale.seller_id" required>
+                  <option v-if="isLoadingSellers" value="" disabled>Loading sellers...</option>
+                  <option 
+                    v-for="seller in sellersDropdown" 
+                    :key="seller.id" 
+                    :value="seller.id"
+                    :selected="seller.id === selectedSale.seller_id"
+                  >
+                    {{ seller.name }} (ID: {{ seller.id }})
+                  </option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="editAmount" class="form-label">Amount (R$)</label>
+                <input type="number" step="0.01" class="form-control" id="editAmount" 
+                       v-model="selectedSale.amount" required min="0.01">
+              </div>
+              <div class="mb-3">
+                <label for="editSaleDate" class="form-label">Date</label>
+                <input type="date" class="form-control" id="editSaleDate" 
+                       v-model="selectedSale.sale_date" required>
+              </div>
+              <div v-if="error" class="alert alert-danger mt-3">
+                {{ error }}
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @click="closeEditModal">Cancel</button>
+                <button type="submit" class="btn btn-primary" :disabled="isUpdating">
+                  <span v-if="isUpdating" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  Update Sale
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Exclusão -->
+    <div class="modal fade" :class="{ show: isDeleteModalOpen, 'd-block': isDeleteModalOpen }" tabindex="-1" v-if="isDeleteModalOpen && saleToDelete">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title">Confirm Deletion</h5>
+            <button type="button" class="btn-close btn-close-white" @click="closeDeleteModal"></button>
+          </div>
+          <div class="modal-body">
+            <p>Are you sure you want to delete sale <strong>#{{ saleToDelete.id }}</strong>?</p>
+            <p class="text-danger">This action cannot be undone!</p>
+            <div v-if="error" class="alert alert-danger mt-3">
+              {{ error }}
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeDeleteModal">Cancel</button>
+            <button type="button" class="btn btn-danger" @click="deleteSale" :disabled="isDeleting">
+              <span v-if="isDeleting" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              Confirm Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Backdrops -->
+    <div class="modal-backdrop fade" :class="{ show: isViewModalOpen }" v-if="isViewModalOpen"></div>
+    <div class="modal-backdrop fade" :class="{ show: isEditModalOpen }" v-if="isEditModalOpen"></div>
+    <div class="modal-backdrop fade" :class="{ show: isDeleteModalOpen }" v-if="isDeleteModalOpen"></div>
+
     <div v-else>
       <!-- Tabela de vendas -->
       <div class="table-responsive">
@@ -90,15 +221,32 @@
                 <td>{{ formatDate(sale.sale_date) }}</td>
                 <td>
                 <div class="btn-group btn-group-sm" role="group">
-                    <button class="btn btn-outline-primary" title="View">
+                  <!-- View button -->
+                  <button 
+                    @click="openViewModal(sale)" 
+                    class="btn btn-outline-primary" 
+                    title="View Details"
+                  >
                     <i class="bi bi-eye"></i>
-                    </button>
-                    <button class="btn btn-outline-secondary" title="Edit">
+                  </button>
+
+                  <!-- Edit button -->
+                  <button 
+                    @click="openEditModal(sale)" 
+                    class="btn btn-outline-secondary" 
+                    title="Edit"
+                  >
                     <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-outline-danger" title="Delete">
+                  </button>
+
+                  <!-- Delete button -->
+                  <button 
+                    @click="openDeleteModal(sale)" 
+                    class="btn btn-outline-danger" 
+                    title="Delete"
+                  >
                     <i class="bi bi-trash"></i>
-                    </button>
+                  </button>
                 </div>
                 </td>
             </tr>
@@ -176,6 +324,39 @@ export default defineComponent({
       }
     };
 
+    // Adicione estes métodos
+    const openViewModal = (sale: Sale) => {
+      controller.openViewModal(sale);
+    };
+
+    const closeViewModal = () => {
+      controller.closeViewModal();
+    };
+
+    const openEditModal = (sale: Sale) => {
+      controller.openEditModal(sale);
+    };
+
+    const closeEditModal = () => {
+      controller.closeEditModal();
+    };
+
+    const openDeleteModal = (sale: Sale) => {
+      controller.openDeleteModal(sale);
+    };
+
+    const closeDeleteModal = () => {
+      controller.closeDeleteModal();
+    };
+
+    const updateSale = async () => {
+      await controller.updateSale();
+    };
+
+    const deleteSale = async () => {
+      await controller.deleteSale();
+    };
+
     // Carrega dados iniciais
     onMounted(() => {
       controller.fetchSales();
@@ -203,14 +384,30 @@ export default defineComponent({
       isLoading: controller.isLoading,
       error: controller.error,
       pagination: controller.pagination,
+      isLoadingSellers: controller.isLoadingSellers, 
       isCreateModalOpen: controller.isCreateModalOpen,
+      isViewModalOpen: controller.isViewModalOpen,
+      isEditModalOpen: controller.isEditModalOpen,
+      isDeleteModalOpen: controller.isDeleteModalOpen,
+      isUpdating: controller.isUpdating,
+      isDeleting: controller.isDeleting,
       newSale: controller.newSale,
+      selectedSale: controller.selectedSale,
+      saleToDelete: controller.saleToDelete,
       sellersDropdown: controller.sellersDropdown,
+      updateSale,
+      deleteSale,
       
       // Métodos
       fetchSales: controller.fetchSales.bind(controller),
       createSale: controller.createSale.bind(controller),
       openCreateModal,
+      openViewModal,
+      closeViewModal,
+      openEditModal,
+      closeEditModal,
+      openDeleteModal,
+      closeDeleteModal,
       closeCreateModal,
       goToPage,
       formatCurrency,
@@ -230,13 +427,14 @@ export default defineComponent({
   font-family: 'Courier New', monospace;
   font-weight: bold;
 }
-
 .table-responsive {
   margin-bottom: 20px;
 }
-
 .page-item.disabled .page-link {
   opacity: 0.5;
   pointer-events: none;
+}
+.btn-group {
+  flex-wrap: nowrap;
 }
 </style>
