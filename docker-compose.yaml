@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  app:
+    build: .
+    ports:
+      - "5173:5173"  # Mapeia a porta do container para a sua máquina
+    environment:
+      - HOST=0.0.0.0
+      - PORT=5173
+    volumes:
+      - ./:/app
+      - /app/node_modules
